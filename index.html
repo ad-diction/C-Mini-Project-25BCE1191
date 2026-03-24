@@ -663,6 +663,7 @@
     <button class="qbtn" onclick="quickSend('4')">④ Cancel</button>
     <button class="qbtn" onclick="quickSend('5')">⑤ Search</button>
     <button class="qbtn" onclick="quickSend('6')">⑥ Report</button>
+    <button class="qbtn" onclick="quickSend('7')">⑦ Update</button>
     <button class="qbtn" onclick="quickSend('0')" style="border-color:#ff4566;color:#ff4566">⓪ Exit</button>
   </div>
 
@@ -745,6 +746,7 @@ function handleInput(raw) {
   else if (state==='BOOK')   handleBook(val);
   else if (state==='CANCEL') handleCancel(val);
   else if (state==='SEARCH') handleSearch(val);
+  else if (state==='UPDATE') handleUpdate(val);
   else if (state==='SEATS')  handleSeats(val);
   else if (state==='SEATS_ROUTE') handleSeatsRoute(val);
 }
@@ -764,6 +766,7 @@ function showMenu() {
       <div class="menu-item" onclick="quickSend('4')"><span class="menu-num">4</span><span class="menu-label">Cancel Ticket</span></div>
       <div class="menu-item" onclick="quickSend('5')"><span class="menu-num">5</span><span class="menu-label">Search Ticket by ID</span></div>
       <div class="menu-item" onclick="quickSend('6')"><span class="menu-num">6</span><span class="menu-label">Daily Collection Report</span></div>
+      <div class="menu-item" onclick="quickSend('7')"><span class="menu-num">7</span><span class="menu-label">Update Passenger Name</span></div>
       <div class="menu-item menu-exit" onclick="quickSend('0')"><span class="menu-num">0</span><span class="menu-label">Exit</span></div>
     </div>`;
   terminal.appendChild(menu);
@@ -772,7 +775,7 @@ function showMenu() {
 
 function handleMenu(val) {
   const c = parseInt(val);
-  if (isNaN(c)) { pE('Invalid input. Enter 0–6.'); showMenu(); return; }
+  if (isNaN(c)) { pE('Invalid input. Enter 0–7.'); showMenu(); return; }
   switch(c) {
     case 1: displayRoutes(); showMenu(); break;
     case 2: state='SEATS'; handleSeats(null); break;
@@ -780,13 +783,14 @@ function handleMenu(val) {
     case 4: state='CANCEL'; subState='ID'; print('Enter Ticket ID to cancel: '); break;
     case 5: state='SEARCH'; subState='ID'; print('Enter Ticket ID to search: '); break;
     case 6: dailyReport(); showMenu(); break;
+    case 7: state='UPDATE'; subState='ID'; print('Enter Ticket ID to update: '); break;
     case 0:
       pO('');
       pO('  Thank you for using Bus Reservation System!');
       pO('  Goodbye 👋');
       inputEl.disabled = true; sendBtn.disabled = true;
       break;
-    default: pE('Invalid choice. Enter 0–6.'); showMenu();
+    default: pE('Invalid choice. Enter 0–7.'); showMenu();
   }
 }
 
@@ -1024,6 +1028,52 @@ function handleSearch(val) {
     terminal.scrollTop = terminal.scrollHeight;
   }
   state='MENU'; showMenu();
+}
+
+// ─────────────────────────────────────────────
+// UPDATE
+// ─────────────────────────────────────────────
+function handleUpdate(val) {
+  if (subState === 'ID') {
+    const tid = parseInt(val);
+    if (isNaN(tid)) { pE('Invalid Ticket ID.'); state='MENU'; showMenu(); return; }
+    const b = bookings.find(x => x.ticketID === tid);
+    if (!b) { pE('Ticket ID ' + tid + ' not found.'); state='MENU'; showMenu(); return; }
+    if (b.isCancelled) { pE('Cannot update a cancelled ticket.'); state='MENU'; showMenu(); return; }
+    tempData.tid = tid;
+    subState = 'NAME';
+    print('Current Passenger Name: ' + b.passengerName);
+    print('Enter New Passenger Name: ');
+  } else if (subState === 'NAME') {
+    const name = val.trim();
+    if (!name) { pE('Name cannot be empty.'); print('Enter New Passenger Name: '); return; }
+    if (/[0-9]/.test(name)) { pE('Name cannot contain digits.'); print('Enter New Passenger Name: '); return; }
+    const b = bookings.find(x => x.ticketID === tempData.tid);
+    const oldName = b.passengerName;
+    b.passengerName = name;
+    const card = document.createElement('div');
+    card.className = 'ticket-card';
+    card.style.borderColor = 'var(--cyan)';
+    card.innerHTML = `
+      <div class="ticket-header" style="background:linear-gradient(135deg,#00c9ff,#0066aa)">
+        <span>✏️ BOOKING UPDATED</span>
+        <span>#${b.ticketID}</span>
+      </div>
+      <div class="ticket-body">
+        <span class="ticket-label">Ticket ID</span>    <span class="ticket-value id-val">#${b.ticketID}</span>
+        <span class="ticket-label">Old Name</span>     <span class="ticket-value" style="color:var(--muted);text-decoration:line-through">${oldName}</span>
+        <span class="ticket-label">New Name</span>     <span class="ticket-value">${name}</span>
+        <span class="ticket-label">Route</span>        <span class="ticket-value route-val">${routes[b.routeID-1].source} → ${routes[b.routeID-1].destination}</span>
+        <span class="ticket-label">Seat</span>         <span class="ticket-value">${b.seatNumber}</span>
+      </div>
+      <div class="ticket-footer">
+        <span>Status: ACTIVE ✓</span>
+        <span>Name updated successfully</span>
+      </div>`;
+    terminal.appendChild(card);
+    terminal.scrollTop = terminal.scrollHeight;
+    state = 'MENU'; showMenu();
+  }
 }
 
 // ─────────────────────────────────────────────
